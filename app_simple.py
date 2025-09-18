@@ -26,6 +26,40 @@ def main():
     st.title("🔧 PIXID Invoice Corrector")
     st.markdown("Correction automatique des factures XML lors des semaines à cheval sur deux mois")
     
+    # Explication du problème
+    with st.expander("ℹ️ Comprendre le problème et la solution", expanded=True):
+        st.markdown("""
+        ### 🔴 Le problème
+        
+        Lorsqu'une semaine de travail chevauche deux mois (ex: du 26 août au 1er septembre), votre ERP :
+        - **Envoie à PIXID** : Le XML avec la semaine COMPLÈTE (38h)
+        - **Mais vous facturez** : Seulement la fin du mois (ex: 8h du lundi 30/06)
+        
+        **Résultat** : PIXID rejette la facture car les heures RAF (8h) ne correspondent pas aux heures facturées (38h).
+        
+        ### ✅ Ce que fait cette application
+        
+        1. **Détecte automatiquement** la période réelle à facturer depuis les TimeCards (RAF)
+        2. **Ajuste les quantités** :
+           - Heures travaillées → uniquement celles de la période RAF
+           - Paniers/Transport → 1 par jour travaillé dans la période
+           - HS/RTT → supprimés si hors période
+        3. **Recalcule les montants** :
+           - Total HT aligné sur les heures RAF
+           - TVA recalculée (20%)
+           - TTC = HT + TVA
+        4. **Préserve la structure XML** exacte pour PIXID
+        
+        ### 📊 Exemple concret
+        
+        **Avant** : Facture de 38h (854.76€) pour la semaine complète
+        **Après** : Facture de 8h (195.37€) pour le lundi uniquement
+        
+        L'égalité **RAF = Lignes = TotalCharges** est garantie → PIXID accepte la facture !
+        """)
+    
+    st.markdown("---")
+    
     # Upload du fichier
     uploaded_file = st.file_uploader(
         "Choisissez un fichier XML PIXID",
@@ -68,6 +102,15 @@ def main():
                 st.markdown("---")
                 st.subheader("🔄 Correction proposée")
                 
+                # Explication de la correction
+                st.info("""
+                **Ce qui va être corrigé :**
+                - Les quantités seront ajustées pour correspondre à la période RAF
+                - Les lignes HS/RTT seront supprimées si non concernées
+                - Les montants seront recalculés proportionnellement
+                - Les dates DEB_PER/FIN_PER seront alignées sur la période RAF
+                """)
+                
                 # Calcul du ratio
                 ratio = data['raf_hours'] / data['invoice_hours'] if data['invoice_hours'] > 0 else 1
                 
@@ -99,6 +142,22 @@ def main():
                         corrected_xml = processor.fix()
                         
                         st.success("✅ Correction appliquée avec succès!")
+                        
+                        # Explication du résultat
+                        st.markdown("""
+                        ### ✨ Ce qui a été fait :
+                        
+                        1. **TimeCards filtrés** : Seuls les intervalles de la période RAF ont été conservés
+                        2. **Lignes ajustées** : 
+                           - Heures : 38h → 8h
+                           - Paniers : 5 → 1
+                           - Transport : 5 → 1
+                           - HS/RTT : supprimés
+                        3. **Montants recalculés** : Tous les totaux alignés sur la période RAF
+                        4. **Structure préservée** : Le XML garde exactement le même format pour PIXID
+                        
+                        **Résultat** : La facture est maintenant cohérente et prête pour PIXID !
+                        """)
                         
                         # Vérification rapide
                         st.markdown("**Validation :**")
