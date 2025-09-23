@@ -9,16 +9,51 @@ from datetime import datetime, timedelta
 from dateutil import parser as date_parser
 import re
 
+# Import de la détection d'encodage
+try:
+    from encoding_helper import detect_and_decode, ensure_utf8_xml
+except ImportError:
+    # Fonction de secours si le module n'est pas disponible
+    def detect_and_decode(content):
+        if isinstance(content, str):
+            return content, 'already_string'
+        
+        # Essayer les encodages courants
+        for encoding in ['utf-8', 'latin-1', 'iso-8859-1', 'windows-1252', 'cp1252']:
+            try:
+                return content.decode(encoding), encoding
+            except:
+                continue
+        
+        # Forcer en latin-1
+        return content.decode('latin-1', errors='replace'), 'latin-1_forced'
+    
+    def ensure_utf8_xml(xml_content):
+        return xml_content
+
 class SimpleXMLProcessor:
     """Processeur XML tout-en-un pour les factures PIXID"""
     
     def __init__(self, xml_content):
         """Initialise le processeur avec le contenu XML"""
+        # Détection automatique de l'encodage
         if isinstance(xml_content, bytes):
-            xml_content = xml_content.decode('utf-8')
+            xml_content, detected_encoding = detect_and_decode(xml_content)
+            self.encoding_used = detected_encoding
+        else:
+            self.encoding_used = 'already_string'
         
-        self.xml_string = xml_content
-        self.root = ET.fromstring(xml_content)
+        # S'assurer que le XML est bien formé pour ET
+        self.xml_string = ensure_utf8_xml(xml_content)
+        
+        # Parser le XML
+        try:
+            # ET.fromstring attend des bytes en UTF-8
+            self.root = ET.fromstring(self.xml_string.encode('utf-8'))
+        except ET.ParseError as e:
+            # Si erreur de parsing, essayer de nettoyer le XML
+            cleaned = self._clean_xml(self.xml_string)
+            self.root = ET.fromstring(cleaned.encode('utf-8'))
         self.data = {}
         
     def analyze(self):
