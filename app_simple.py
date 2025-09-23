@@ -68,12 +68,19 @@ def main():
     )
     
     if uploaded_file is not None:
-        # Lecture du fichier
+        # Lecture du fichier (sans décoder, on laisse le processeur gérer)
         xml_content = uploaded_file.read()
+        
+        # Affichage d'un message informatif
+        st.info("📋 Traitement du fichier en cours... Détection automatique de l'encodage...")
         
         try:
             # Création du processeur
             processor = SimpleXMLProcessor(xml_content)
+            
+            # Affichage de l'encodage détecté
+            if hasattr(processor, 'encoding_used'):
+                st.success(f"✅ Fichier chargé avec succès (Encodage détecté: {processor.encoding_used})")
             
             # Analyse du XML
             data = processor.analyze()
